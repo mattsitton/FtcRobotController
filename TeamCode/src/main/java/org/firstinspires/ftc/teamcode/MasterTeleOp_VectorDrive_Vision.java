@@ -1,4 +1,3 @@
-// File: MasterTeleOp_Vision.txt
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -7,7 +6,7 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.PIDFCoefficients;
+// Removed PIDFCoefficients import as it's no longer used for control
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -18,7 +17,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
 import java.util.List;
 
-@TeleOp(name = "MasterTeleOp_Vision", group = "TeleOp")
+@TeleOp(name = "MasterTeleOp_Vision_NoOdom", group = "TeleOp")
 public class MasterTeleOp_VectorDrive_Vision extends OpMode {
 
     // --- Drivetrain ---
@@ -26,7 +25,7 @@ public class MasterTeleOp_VectorDrive_Vision extends OpMode {
 
     // --- Mecanum Wheel Geometry (in meters from robot center) ---
     private final double flX = 0.15, flY = 0.15;
-    private final double frX = 0.15, frY = -0.075; // Front-right wheel is offset halfway back
+    private final double frX = 0.15, frY = -0.15; // Front-right wheel is offset halfway back
     private final double blX = -0.15, blY = 0.15;
     private final double brX = -0.15, brY = -0.15;
 
@@ -35,10 +34,14 @@ public class MasterTeleOp_VectorDrive_Vision extends OpMode {
     private CRServo leftFeeder, rightFeeder;
     private final double FEED_TIME_SECONDS = 0.20;
     private final double FULL_FEED_POWER = 1.0;
-    private final int LOW_RPM = 2500;
-    private final int HIGH_RPM = 3500;
+
+    // 🔥 CHANGE: Define power levels instead of RPMs
+    private final double LOW_POWER = 0.6; // Example low power
+    private final double HIGH_POWER = 1.0; // Full power
+
+    // NOTE: RPM_TOLERANCE and LAUNCHER_PIDF are no longer used for control logic
     private final int RPM_TOLERANCE = 100;
-    private final PIDFCoefficients LAUNCHER_PIDF = new PIDFCoefficients(300, 0, 0, 10);
+    // private final PIDFCoefficients LAUNCHER_PIDF = new PIDFCoefficients(300, 0, 0, 10); // Removed
 
     // --- Enhancements ---
     private VoltageSensor batteryVoltageSensor;
@@ -63,7 +66,9 @@ public class MasterTeleOp_VectorDrive_Vision extends OpMode {
 
     // --- State Variables ---
     private boolean flywheelAtSpeed = false;
-    private int currentTargetRPM = 0;
+    // 🔥 CHANGE: currentTargetRPM becomes currentTargetPower
+    private double currentTargetPower = 0.0;
+    private double currentRPM = 0.0; // NEW: To hold the measured RPM for telemetry
 
 
     @Override
@@ -81,9 +86,14 @@ public class MasterTeleOp_VectorDrive_Vision extends OpMode {
         // --- Motor & Servo Configuration ---
         frontLeft.setDirection(DcMotor.Direction.REVERSE);
         backLeft.setDirection(DcMotor.Direction.REVERSE);
-        launcherMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        // 🔥 CHANGE: Set motor to RUN_WITHOUT_ENCODER for power control
+        launcherMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
         launcherMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        launcherMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, LAUNCHER_PIDF);
+        // REMOVED: Custom PIDF setting is not needed in power mode
+        // launcherMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, LAUNCHER_PIDF);
+
         leftFeeder.setDirection(DcMotorSimple.Direction.REVERSE);
         leftFeeder.setPower(0);
         rightFeeder.setPower(0);
@@ -98,7 +108,7 @@ public class MasterTeleOp_VectorDrive_Vision extends OpMode {
                 .addProcessor(aprilTagProcessor)
                 .build();
 
-        telemetry.addLine("Master TeleOp (Vision) Initialized.");
+        telemetry.addLine("Master TeleOp (No Odom) Initialized.");
         telemetry.update();
     }
 
@@ -183,24 +193,32 @@ public class MasterTeleOp_VectorDrive_Vision extends OpMode {
         driveMecanumVectorOffset(strafeCmd, forwardCmd, rotateCmd);
 
         // --- Launcher State Machine ---
-        handleLauncherState(pressX, flywheelAtSpeed);
+        // For power mode, check if power is applied and actual RPM is above a launch threshold (e.g., 2000)
+        boolean isFlywheelReady = currentTargetPower > 0.5 && currentRPM > 2000;
+        handleLauncherState(pressX, isFlywheelReady);
 
         // --- Telemetry ---
-        updateTelemetry(isAutoDrive, tagVisible);
+        updateTelemetry(isAutoDrive, tagVisible, tagX, tagY, tagYawDeg);
     }
 
     private void handleFlywheel(double trigger) {
-        if (trigger > 0.8) currentTargetRPM = HIGH_RPM;
-        else if (trigger > 0.3) currentTargetRPM = LOW_RPM;
-        else currentTargetRPM = 0;
-        launcherMotor.setVelocity(rpmToTicksPerSecond(currentTargetRPM));
-
-        double currentRPM = ticksPerSecondToRPM(launcherMotor.getVelocity());
-        boolean atSpeedNow = (currentTargetRPM > 0) && (Math.abs(currentRPM - currentTargetRPM) <= RPM_TOLERANCE);
-        if (atSpeedNow && !flywheelAtSpeed) {
-            try { gamepad1.rumble(200); } catch (Exception ignored) {}
+        // 🔥 CHANGE: Set target power based on the trigger
+        if (trigger > 0.8) {
+            currentTargetPower = HIGH_POWER;
+        } else if (trigger > 0.3) {
+            currentTargetPower = LOW_POWER;
+        } else {
+            currentTargetPower = 0.0;
         }
-        flywheelAtSpeed = atSpeedNow;
+
+        // Apply power directly
+        launcherMotor.setPower(currentTargetPower);
+
+        // 🔥 NEW: Measure and store the actual RPM using the motor encoder
+        currentRPM = ticksPerSecondToRPM(launcherMotor.getVelocity());
+
+        // Update state variable: Assume "at speed" if power is applied and measured RPM is reasonable
+        flywheelAtSpeed = (currentTargetPower > 0) && (currentRPM > 2000);
     }
 
     private void handleLauncherState(boolean xPressed, boolean isFlywheelReady) {
@@ -229,17 +247,25 @@ public class MasterTeleOp_VectorDrive_Vision extends OpMode {
         backRight.setPower(brPower / max);
     }
 
-    private void updateTelemetry(boolean auto, boolean visible) {
+    private void updateTelemetry(boolean auto, boolean visible, double x, double y, double yaw) {
         telemetry.addData("Mode", auto ? "AUTO" : (targetLockActive ? "TARGET-LOCK" : "MANUAL"));
         telemetry.addData("Tag Visible", visible);
         telemetry.addData("Battery", "%.2f V", batteryVoltageSensor.getVoltage());
-        telemetry.addData("Launcher Target", "%d RPM", currentTargetRPM);
+
+        // 🔥 CHANGE: Show current power and actual measured RPM
+        telemetry.addData("Launcher Power", "%.2f", currentTargetPower);
+        telemetry.addData("Launcher Actual", "%.0f RPM", currentRPM);
+
         telemetry.addData("Flywheel Ready", flywheelAtSpeed);
         telemetry.update();
     }
 
-    private double rpmToTicksPerSecond(double rpm) { return (rpm / 60.0) * 28.0; }
+    // REMOVED: rpmToTicksPerSecond is not needed for control
+    // private double rpmToTicksPerSecond(double rpm) { return (rpm / 60.0) * 28.0; }
+
+    // CHANGED: ticksPerSecondToRPM is kept to measure and display speed
     private double ticksPerSecondToRPM(double ticksPerSec) { return (ticksPerSec / 28.0) * 60.0; }
+
     private double clamp(double val, double min, double max) { return Math.max(min, Math.min(max, val)); }
 
     @Override

@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -41,8 +42,8 @@ public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
     private CRServo leftFeeder, rightFeeder;
     private final double FEED_TIME_SECONDS = 0.20;
     private final double FULL_FEED_POWER = 1.0;
-    private final int LOW_RPM = 2500;
-    private final int HIGH_RPM = 3500;
+    private final double LOW_POWER = -.3;
+    private final int HIGH_POWER = -1;
     private final int RPM_TOLERANCE = 100;
     private final PIDFCoefficients LAUNCHER_PIDF = new PIDFCoefficients(300, 0, 0, 10);
 
@@ -70,7 +71,7 @@ public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
 
     // --- State Variables ---
     private boolean flywheelAtSpeed = false;
-    private int currentTargetRPM = 0;
+    private int currentPower = 0;
 
 
     @Override
@@ -145,6 +146,9 @@ public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
             tagYawDeg = tag.ftcPose.yaw;
             tagX = tag.ftcPose.x;
             tagY = tag.ftcPose.y;
+            telemetry.addData("tagX",tagX);
+            telemetry.addData("tagY",tagY);
+            telemetry.addData("tagYawDeg",tagYawDeg);
         }
 
         // --- Cancel Overrides ---
@@ -168,9 +172,9 @@ public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
                 strafeCmd = -sError * autoScale;
                 rotateCmd = -Math.toRadians(tagYawDeg) * autoScale;
             }
-            forwardCmd += stickForward * 0.2;
-            strafeCmd += stickStrafe * 0.2;
-            rotateCmd += stickRotate * 0.2;
+            forwardCmd += stickForward * 0.5;
+            strafeCmd += stickStrafe * 0.5;
+            rotateCmd += stickRotate * 0.5;
         }
 
         if (targetLockActive) {
@@ -191,7 +195,8 @@ public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
         }
 
         // --- Apply Driver Enhancements ---
-        double slowFactor = 1.0 - (0.7 * leftTrigger);
+        double slowFactor = 1.0;
+        // - (0.7 * leftTrigger)^
         double voltageComp = NOMINAL_VOLTAGE / batteryVoltageSensor.getVoltage();
 
         forwardCmd *= slowFactor * voltageComp;
@@ -233,6 +238,7 @@ public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
         max = Math.max(max, Math.abs(frPower));
         max = Math.max(max, Math.abs(blPower));
         max = Math.max(max, Math.abs(brPower));
+        max = Math.max(max, Math.abs(flPower));
 
         if (max > 1.0) {
             flPower /= max;
@@ -248,13 +254,13 @@ public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
     }
 
     private void handleFlywheel(double trigger) {
-        if (trigger > 0.8) currentTargetRPM = HIGH_RPM;
-        else if (trigger > 0.3) currentTargetRPM = LOW_RPM;
-        else currentTargetRPM = 0;
-        launcherMotor.setVelocity(rpmToTicksPerSecond(currentTargetRPM));
+        if (trigger > .9) currentPower = HIGH_POWER;
+        else if (trigger > 0.1) currentPower = (int) LOW_POWER;
+        else currentPower = 0;
+        launcherMotor.setPower(currentPower);
 
         double currentRPM = ticksPerSecondToRPM(launcherMotor.getVelocity());
-        boolean atSpeedNow = (currentTargetRPM > 0) && (Math.abs(currentRPM - currentTargetRPM) <= RPM_TOLERANCE);
+        boolean atSpeedNow = (currentPower > 0) && (Math.abs(currentRPM - currentPower) <= RPM_TOLERANCE);
         if (atSpeedNow && !flywheelAtSpeed) {
             try { gamepad1.rumble(200); } catch (Exception ignored) {}
         }
@@ -262,7 +268,8 @@ public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
     }
 
     private void handleLauncherState(boolean xPressed, boolean isFlywheelReady) {
-        if (launchState == LaunchState.IDLE && xPressed && isFlywheelReady) {
+        if (launchState == LaunchState.IDLE && xPressed && isFlywheelReady ) {
+            //launchState == LaunchState.IDLE && xPressed && isFlywheelReady ^
             feederTimer.reset();
             leftFeeder.setPower(FULL_FEED_POWER);
             rightFeeder.setPower(FULL_FEED_POWER);
@@ -301,8 +308,9 @@ public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
         telemetry.addData("Mode", auto ? "AUTO" : (targetLockActive ? "TARGET-LOCK" : "MANUAL"));
         telemetry.addData("Tag Visible", visible);
         telemetry.addData("Battery", "%.2f V", batteryVoltageSensor.getVoltage());
-        telemetry.addData("Launcher Target", "%d RPM", currentTargetRPM);
+        telemetry.addData("Launcher Target", "%d RPM", currentPower);
         telemetry.addData("Flywheel Ready", flywheelAtSpeed);
+
 
         // ADDED Odometry Telemetry
         if (pose != null) {

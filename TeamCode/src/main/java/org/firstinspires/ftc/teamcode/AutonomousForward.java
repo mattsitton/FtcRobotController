@@ -16,7 +16,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  * - Left side motors are reversed for driving straight.
  */
 
-@Autonomous(name = "Autonomous Forward 1 Second", group = "Autonomous")
+@Autonomous(name = "Autonomous Forward 3 Second", group = "Autonomous")
 public class AutonomousForward extends LinearOpMode {
 
     // Declare OpMode members.
@@ -28,8 +28,8 @@ public class AutonomousForward extends LinearOpMode {
     private ElapsedTime runtime = new ElapsedTime();
 
     // Constant for the power level and duration
-    private final double DRIVE_POWER = 0.5;
-    private final double DRIVE_TIME_SECONDS = 1.0;
+    private final double DRIVE_POWER = 0.7 ;
+    private final double DRIVE_TIME_SECONDS = 3.0;
 
     @Override
     public void runOpMode() {
