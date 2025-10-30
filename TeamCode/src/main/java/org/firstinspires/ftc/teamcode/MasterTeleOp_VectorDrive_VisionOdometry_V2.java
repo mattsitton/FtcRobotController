@@ -57,12 +57,12 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
     // --- Target Lock / Vision Assist ---
     private boolean visionAssistActive = false; // Unified flag for Vision Assist
     private boolean targetLocked = false;
-    private final double ROTATION_KP = 0.02;
+    private final double ROTATION_KP = 0.1;
     private final double ROTATION_MAX = 0.45;
-    private final double STRAFE_KP = 0.3; // Proportional gain for X-axis alignment
+    private final double STRAFE_KP = 0.7; // Proportional gain for X-axis alignment
     private final double STRAFE_MAX = 0.5; // Maximum strafing power
     private final double ALIGNMENT_TOLERANCE_MM = 50.0; // Tolerance for strafing lock (50 mm)
-    private final double ANGLE_TOLERANCE_DEG = 2.0; // Tolerance for angle lock
+    private final double ANGLE_TOLERANCE_DEG = 5.0; // Tolerance for angle lock
 
     // X-Axis Offset
     private final double ALIGNMENT_X_OFFSET_M = 0.0; // [CUSTOMIZE]

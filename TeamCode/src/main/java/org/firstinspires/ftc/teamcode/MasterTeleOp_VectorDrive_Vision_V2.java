@@ -33,8 +33,8 @@ public class MasterTeleOp_VectorDrive_Vision_V2 extends OpMode {
     private CRServo leftFeeder, rightFeeder;
     private final double FEED_TIME_SECONDS = 0.20; // Time the feeder runs for
     private final double FULL_FEED_POWER = 1.0;
-    private final int LOW_RPM = 2500;
-    private final int HIGH_RPM = 3500;
+    private final int LOW_RPM = -10;
+    private final int HIGH_RPM = -20;
     private final int RPM_TOLERANCE = 100;
     private final PIDFCoefficients LAUNCHER_PIDF = new PIDFCoefficients(300, 0, 0, 10);
 
@@ -121,7 +121,7 @@ public class MasterTeleOp_VectorDrive_Vision_V2 extends OpMode {
     @Override
     public void loop() {
         // --- Read Gamepad Inputs ---
-        double stickForward = -gamepad1.left_stick_y;
+        double stickForward = gamepad1.left_stick_y;
         double stickStrafe = gamepad1.left_stick_x;
         double stickRotate = gamepad1.right_stick_x;
         double leftTrigger = gamepad1.left_trigger;

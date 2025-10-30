@@ -109,14 +109,14 @@ public class EnhancedStarterBot_TeleOp extends OpMode {
 
         // --- Launcher Speed Control with Battery Compensation ---
         double rawTargetVelocity;
-        if (launcherTrigger > 0.8) {
+        if (launcherTrigger > 0.6) {
             rawTargetVelocity = HIGH_VELOCITY;
         } else if (launcherTrigger > 0.1) {
             rawTargetVelocity = LOW_VELOCITY;
         } else {
             rawTargetVelocity = 0;
         }
-
+telemetry.addData("launcherTrigger",launcherTrigger);
         double currentVoltage = hardwareMap.voltageSensor.iterator().next().getVoltage();
         double compensatedVelocity = rawTargetVelocity * (NOMINAL_VOLTAGE / currentVoltage);
         currentTargetVelocity = rawTargetVelocity == 0 ? 0 : compensatedVelocity;

@@ -17,7 +17,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  */
 
 @Autonomous(name = "Autonomous Forward 3 Second", group = "Autonomous")
-public class AutonomousForward extends LinearOpMode {
+public class AutoForward extends LinearOpMode {
 
     // Declare OpMode members.
     private DcMotor leftFrontDrive = null;
@@ -28,16 +28,21 @@ public class AutonomousForward extends LinearOpMode {
     private ElapsedTime runtime = new ElapsedTime();
 
     // Constant for the power level and duration
-    private final double DRIVE_POWER = 0.7 ;
+    private final double DRIVE_POWER = 0.7  ;
     private final double DRIVE_TIME_SECONDS = 3.0;
-
+/*
+      frontLeft = hardwareMap.get(DcMotor.class, "frontLeft");
+        frontRight = hardwareMap.get(DcMotor.class, "frontRight");
+        backLeft = hardwareMap.get(DcMotor.class, "backLeft");
+        backRight = hardwareMap.get(DcMotor.class, "backRight");
+ */
     @Override
     public void runOpMode() {
         // 1. Initialize Drive Motors
-        leftFrontDrive  = hardwareMap.get(DcMotor.class, "left_front_drive");
-        rightFrontDrive = hardwareMap.get(DcMotor.class, "right_front_drive");
-        leftBackDrive   = hardwareMap.get(DcMotor.class, "left_back_drive");
-        rightBackDrive  = hardwareMap.get(DcMotor.class, "right_back_drive");
+        leftFrontDrive  = hardwareMap.get(DcMotor.class, "frontLeft");
+        rightFrontDrive = hardwareMap.get(DcMotor.class, "frontRight");
+        leftBackDrive   = hardwareMap.get(DcMotor.class, "backLeft");
+        rightBackDrive  = hardwareMap.get(DcMotor.class, "backRight");
 
         // 2. Set Motor Directions (Matching TeleOp logic)
         // Left side motors are reversed to drive straight forward.
