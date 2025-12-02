@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -21,7 +22,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit; // ADDE
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit; // ADDED
 
 import java.util.List;
-
+@Disabled
 @TeleOp(name = "MasterTeleOp_VectorDrive_VisionOdometry", group = "TeleOp")
 public class MasterTeleOp_VectorDrive_VisionOdometry extends OpMode {
 

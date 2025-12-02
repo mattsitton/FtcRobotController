@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -18,7 +19,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 // import org.firstinspires.ftc.robotcore.external.navigation.Pose2D; // REMOVED
 
 import java.util.List;
-
+@Disabled
 @TeleOp(name = "MasterTeleOp_Vision_Only_V2", group = "TeleOp")
 public class MasterTeleOp_VectorDrive_Vision_V2 extends OpMode {
 

@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -15,37 +14,41 @@ import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
-import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver; // RESTORED
-import org.firstinspires.ftc.robotcore.external.navigation.Pose2D; // RESTORED
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 import java.util.List;
-@Disabled
-@TeleOp(name = "MasterTeleOp_VectorDrive_VisionOdometry_V2", group = "TeleOp")
-public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME RESTORED
 
+@TeleOp(name = "MasterTeleOp_VectorDrive_VisionOdometry_V3", group = "TeleOp")
+public class MasterTeleOp_VectorDrive_VisionOdometry_V3 extends OpMode {
+// mm - millimeters
     // --- Drivetrain ---
     private DcMotor frontLeft, frontRight, backLeft, backRight;
 
     // --- Odometry Sensor ---
-    private GoBildaPinpointDriver pinpoint = null; // RESTORED
+    private GoBildaPinpointDriver pinpoint = null;
 
     // --- Launcher & Feeder ---
     private DcMotorEx launcherMotor;
     private CRServo leftFeeder, rightFeeder;
     private final double FEED_TIME_SECONDS = 0.20; // Time the feeder runs for
     private final double FULL_FEED_POWER = 1.0;
-    private final int LOW_RPM = 2500;
-    private final int HIGH_RPM = 3500;
     private final int RPM_TOLERANCE = 100;
     private final PIDFCoefficients LAUNCHER_PIDF = new PIDFCoefficients(300, 0, 0, 10);
 
-    // --- Enhancements ---
+    // NEW: Four RPM targets for D-pad control (Customize these values)
+    private final int RPM_TARGET_UP = 4000;    // Highest RPM
+    private final int RPM_TARGET_RIGHT = 3500;
+    private final int RPM_TARGET_DOWN = 3000;
+    private final int RPM_TARGET_LEFT = 2500;  // Lowest RPM
+
+    // --- Enhancements --- !!!!NO TOUCHING!!!!
     private VoltageSensor batteryVoltageSensor;
     private final double NOMINAL_VOLTAGE = 12.0;
 
-    // --- Timed Launch Variables ---
+    // --- Timed Launch Variables --- !!!!NO TOUCHING!!!!
     private final ElapsedTime feederTimer = new ElapsedTime();
     private boolean launchInProgress = false;
 
@@ -56,8 +59,7 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
     private final double fx = 600.0, fy = 600.0, cx = 320.0, cy = 240.0;
 
     // --- Target Lock / Vision Assist ---
-    private boolean visionAssistActive = false; // Unified flag for Vision Assist
-    private boolean targetLocked = false;
+    // Vision Mode Constants
     private final double ROTATION_KP = 0.1;
     private final double ROTATION_MAX = 0.45;
     private final double STRAFE_KP = 0.7; // Proportional gain for X-axis alignment
@@ -68,9 +70,17 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
     // X-Axis Offset
     private final double ALIGNMENT_X_OFFSET_M = 0.0; // [CUSTOMIZE]
 
-    // --- State Variables ---
+    // State Variables for Vision Modes !!!!NO TOUCHING!!!!
+    private boolean yawAlignActive = false; // Y button: Yaw Alignment only (Hold)
+    private boolean fullAlignActive = false;  // B button: Full Alignment (Yaw + Strafe) (Sticky/One-time)
+    private boolean targetLocked = false;
+    private boolean bButtonWasPressed = false; // Debounce variable for B button
+
+
+    // --- State Variables --- !!!!NO TOUCHING!!!!
     private boolean flywheelAtSpeed = false;
     private int currentTargetRPM = 0;
+    private double currentFlywheelRPM = 0.0; // Added for constant telemetry
 
 
     @Override
@@ -88,6 +98,7 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
         // --- Motor & Servo Configuration ---
         frontLeft.setDirection(DcMotor.Direction.REVERSE);
         backLeft.setDirection(DcMotor.Direction.REVERSE);
+        // Ensure initial mode is RUN_USING_ENCODER for D-pad targets
         launcherMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         launcherMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         launcherMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, LAUNCHER_PIDF);
@@ -95,7 +106,7 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
         leftFeeder.setPower(0);
         rightFeeder.setPower(0);
 
-        // --- Pinpoint Initialization (RESTORED) ---
+        // --- Pinpoint Initialization (RESTORED) --- !!!!NO TOUCHING!!!!
         try {
             // [CUSTOMIZE] Match this name to your hardware configuration
             pinpoint = hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
@@ -106,7 +117,7 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
             pinpoint = null;
         }
 
-        // --- Vision Initialization ---
+        // --- Vision Initialization --- !!!!NO TOUCHING!!!!
         aprilTagProcessor = new AprilTagProcessor.Builder()
                 .setOutputUnits(org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit.METER, org.firstinspires.ftc.robotcore.external.navigation.AngleUnit.DEGREES)
                 .setLensIntrinsics(fx, fy, cx, cy)
@@ -123,17 +134,44 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
     @Override
     public void loop() {
         // --- Read Gamepad Inputs ---
-        double stickForward = -gamepad1.left_stick_y;
+        // Drive input: Forward/Backward direction is reversed here (no '-').
+        double stickForward = gamepad1.left_stick_y;
         double stickStrafe = gamepad1.left_stick_x;
         double stickRotate = gamepad1.right_stick_x;
-        double leftTrigger = gamepad1.left_trigger;
-        double rightTrigger = gamepad1.right_trigger;
+
+        // Drive/Launcher Triggers
+        double slowTrigger = gamepad1.right_trigger;
+        double manualFlywheelPower = gamepad1.left_trigger;
+
+        // Buttons
         boolean pressX = gamepad1.x;
-        boolean pressB = gamepad1.b;
-        boolean pressA = gamepad1.a; // RESTORED (Odometry Reset)
+        boolean pressB = gamepad1.b; // Full Alignment Mode (One-time press)
+        boolean pressA = gamepad1.a;
+        boolean pressY = gamepad1.y; // Yaw Alignment Mode (Hold)
+
+        // Dpad inputs for RPM control
+        boolean dpadUp = gamepad1.dpad_up;
+        boolean dpadRight = gamepad1.dpad_right;
+        boolean dpadDown = gamepad1.dpad_down;
+        boolean dpadLeft = gamepad1.dpad_left;
 
         // --- Flywheel Control ---
-        handleFlywheel(rightTrigger);
+        handleFlywheel(dpadUp, dpadRight, dpadDown, dpadLeft, manualFlywheelPower);
+
+        // --- Odometry Update and Reset (RESTORED) ---
+        Pose2D currentPose = null;
+        double odomHeadingDeg = 0.0;
+        if (pinpoint != null) {
+            pinpoint.update();
+            currentPose = pinpoint.getPosition();
+            odomHeadingDeg = currentPose.getHeading(AngleUnit.DEGREES);
+
+            // Odometry Reset on Gamepad A
+            if (pressA) {
+                // Sets position to (0, 0, 0) in inches and degrees
+                pinpoint.setPosition(new Pose2D(DistanceUnit.INCH, 0, 0, AngleUnit.DEGREES, 0));
+            }
+        }
 
         // --- Vision Processing ---
         List<AprilTagDetection> detections = aprilTagProcessor.getDetections();
@@ -146,51 +184,95 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
             tagY = tag.ftcPose.y; // Forward distance (meters)
         }
 
-        // --- Cancel Overrides ---
-        if (pressB) visionAssistActive = false;
+        // --- Vision Mode State Logic ---
+        yawAlignActive = pressY; // Y button is momentary Yaw Alignment hold
 
-        // --- Unified Vision Assist Logic ---
+        // B button is a one-time press for Full Alignment (Yaw + Strafe)
+        if (pressB && !bButtonWasPressed && tagVisible) {
+            fullAlignActive = true;
+        }
+        bButtonWasPressed = pressB; // Debounce update
+
+        // --- Drive Command Variables ---
         double forwardCmd = stickForward;
         double strafeCmd = stickStrafe;
         double rotateCmd = stickRotate;
+        targetLocked = false;
 
-        // Activation: DPAD UP and Tag is visible
-        visionAssistActive = gamepad1.dpad_up && tagVisible;
 
-        if (visionAssistActive) {
-            // 1. ANGLE ALIGNMENT (Rotation) - Force square alignment
-            double rotPower = -ROTATION_KP * tagYawDeg;
-            rotateCmd = clamp(rotPower, -ROTATION_MAX, ROTATION_MAX);
+        if (yawAlignActive) { // --- Y BUTTON: YAW ALIGNMENT MODE (Rotation Only - Hold) ---
 
-            // 2. X-AXIS ALIGNMENT (Strafe) - Force center alignment with offset
-            double strafeError_M = tagX - ALIGNMENT_X_OFFSET_M;
-            double strafePower = -STRAFE_KP * strafeError_M;
-            strafeCmd = clamp(strafePower, -STRAFE_MAX, STRAFE_MAX);
+            // If the single-press mode is running, Y button is ignored.
+            if(fullAlignActive) { /* Do nothing, fullAlignActive takes precedence */ }
 
-            // 3. FORWARD MOVEMENT - Stays manual, but applies slow factor
+            else if (tagVisible) {
+                // 1. ANGLE ALIGNMENT (Rotation)
+                double rotPower = -ROTATION_KP * tagYawDeg;
+                rotateCmd = clamp(rotPower, -ROTATION_MAX, ROTATION_MAX);
 
-            // 4. LOCK DETECTION
-            boolean isAngleAligned = Math.abs(tagYawDeg) <= ANGLE_TOLERANCE_DEG;
-            // The alignment check uses the modified error, converted to millimeters
-            boolean isStrafeAligned = Math.abs(strafeError_M * 1000.0) <= ALIGNMENT_TOLERANCE_MM;
+                // 2. OTHER AXES (Stays manual)
+                strafeCmd = stickStrafe;
+                forwardCmd = stickForward;
 
-            if (isAngleAligned && isStrafeAligned && !targetLocked) {
-                try { gamepad1.rumble(250); } catch (Exception ignored) {}
-                targetLocked = true;
-            } else if (!isAngleAligned || !isStrafeAligned) {
-                targetLocked = false;
+                // 3. LOCK DETECTION (Only for Yaw)
+                boolean isAngleAligned = Math.abs(tagYawDeg) <= ANGLE_TOLERANCE_DEG;
+
+                if (isAngleAligned) {
+                    targetLocked = true;
+                    rotateCmd = 0;
+                }
+            } else { // No tag visible: Use Odometry to maintain current heading
+                if (pinpoint != null && Math.abs(stickRotate) < 0.1) {
+                    rotateCmd = 0; // Hold heading
+                }
+                strafeCmd = stickStrafe;
+                forwardCmd = stickForward;
             }
 
-            // If aligned, stop the active corrections
-            if (isAngleAligned) rotateCmd = 0;
-            if (isStrafeAligned) strafeCmd = 0;
+        } else if (fullAlignActive) { // --- B BUTTON: FULL ALIGNMENT MODE (Yaw + Strafe - One-time) ---
 
-        } else {
-            targetLocked = false;
+            if (tagVisible) {
+                // 1. ANGLE ALIGNMENT (Rotation)
+                double rotPower = -ROTATION_KP * tagYawDeg;
+                rotateCmd = clamp(rotPower, -ROTATION_MAX, ROTATION_MAX);
+
+                // 2. X-AXIS ALIGNMENT (Strafe)
+                double strafeError_M = tagX - ALIGNMENT_X_OFFSET_M;
+                double strafePower = -STRAFE_KP * strafeError_M;
+                strafeCmd = clamp(strafePower, -STRAFE_MAX, STRAFE_MAX);
+
+                // 3. FORWARD MOVEMENT (Stays manual)
+                forwardCmd = stickForward;
+
+                // 4. LOCK DETECTION
+                boolean isAngleAligned = Math.abs(tagYawDeg) <= ANGLE_TOLERANCE_DEG;
+                boolean isStrafeAligned = Math.abs(strafeError_M * 1000.0) <= ALIGNMENT_TOLERANCE_MM;
+
+                if (isAngleAligned && isStrafeAligned) {
+                    targetLocked = true;
+                    // Alignment complete: Clear the sticky state
+                    fullAlignActive = false;
+                }
+
+                // If aligned, stop the active corrections
+                if (isAngleAligned) rotateCmd = 0;
+                if (isStrafeAligned) strafeCmd = 0;
+
+            } else { // Tag lost during alignment: Stop autonomous motion and clear the sticky state
+                fullAlignActive = false;
+                strafeCmd = stickStrafe;
+                rotateCmd = stickRotate;
+            }
+
+            // Allow manual stick input to immediately cancel the sticky state
+            if (Math.abs(stickForward) > 0.1 || Math.abs(stickStrafe) > 0.1 || Math.abs(stickRotate) > 0.1) {
+                fullAlignActive = false;
+            }
         }
 
         // --- Apply Driver Enhancements ---
-        double slowFactor = 1.0 - (0.7 * leftTrigger);
+        // slowTrigger is right_trigger
+        double slowFactor = 1.0 - (0.7 * slowTrigger);
         double voltageComp = NOMINAL_VOLTAGE / batteryVoltageSensor.getVoltage();
 
         forwardCmd *= slowFactor * voltageComp;
@@ -203,21 +285,8 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
         // --- TIMED FEEDER CONTROL ---
         handleTimedFeeder(pressX);
 
-        // --- Odometry Update and Reset (RESTORED) ---
-        Pose2D currentPose = null;
-        if (pinpoint != null) {
-            pinpoint.update();
-            currentPose = pinpoint.getPosition();
-
-            // Odometry Reset on Gamepad A
-            if (pressA) {
-                // Sets position to (0, 0, 0) in inches and degrees
-                pinpoint.setPosition(new Pose2D(DistanceUnit.INCH, 0, 0, AngleUnit.DEGREES, 0));
-            }
-        }
-
         // --- Telemetry ---
-        updateTelemetry(visionAssistActive, tagVisible, tagX, tagY, tagYawDeg, currentPose);
+        updateTelemetry(yawAlignActive, fullAlignActive, tagVisible, tagX, tagY, tagYawDeg, currentPose, manualFlywheelPower);
     }
 
     private void handleTimedFeeder(boolean xPressed) {
@@ -264,17 +333,34 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
         backRight.setPower(brPower);
     }
 
-    private void handleFlywheel(double trigger) {
-        if (trigger > 0.8) currentTargetRPM = HIGH_RPM;
-        else if (trigger > 0.3) currentTargetRPM = LOW_RPM;
-        else currentTargetRPM = 0;
+    // MODIFIED: Now takes manualPower (Left Trigger) as input for direct control
+    private void handleFlywheel(boolean dpadUp, boolean dpadRight, boolean dpadDown, boolean dpadLeft, double manualPower) {
+
+        if (manualPower > 0.1) {
+            // MANUAL OVERRIDE (Left Trigger is pressed): Set power directly
+            currentTargetRPM = 0; // Clear RPM target
+            launcherMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            launcherMotor.setPower(manualPower);
+            currentFlywheelRPM = 0.0; // RPM is not guaranteed/accurate in RUN_WITHOUT_ENCODER
+            flywheelAtSpeed = false;
+            return;
+        }
+
+        // RETURN TO D-PAD RPM CONTROL
+        launcherMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        if (dpadUp) currentTargetRPM = RPM_TARGET_UP;
+        else if (dpadRight) currentTargetRPM = RPM_TARGET_RIGHT;
+        else if (dpadDown) currentTargetRPM = RPM_TARGET_DOWN;
+        else if (dpadLeft) currentTargetRPM = RPM_TARGET_LEFT;
+        else currentTargetRPM = 0; // Turn off the flywheel
+
         launcherMotor.setVelocity(rpmToTicksPerSecond(currentTargetRPM));
 
         double currentRPM = ticksPerSecondToRPM(launcherMotor.getVelocity());
+        currentFlywheelRPM = currentRPM;
+
         boolean atSpeedNow = (currentTargetRPM > 0) && (Math.abs(currentRPM - currentTargetRPM) <= RPM_TOLERANCE);
-        if (atSpeedNow && !flywheelAtSpeed) {
-            try { gamepad1.rumble(200); } catch (Exception ignored) {}
-        }
         flywheelAtSpeed = atSpeedNow;
     }
 
@@ -301,27 +387,40 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V2 extends OpMode { // NAME
     }
     // END configurePinpoint
 
-    // MODIFIED: Accepts Pose2D object again
-    private void updateTelemetry(boolean assistActive, boolean visible, double tagX, double tagY, double tagYawDeg, Pose2D pose) {
-        telemetry.addData("Mode", assistActive ? (targetLocked ? "VISION ALIGNED" : "VISION ASSIST") : "MANUAL");
+    // MODIFIED: Updated telemetry to show two vision modes
+    private void updateTelemetry(boolean yawActive, boolean fullActive, boolean visible, double tagX, double tagY, double tagYawDeg, Pose2D pose, double manualFlywheelPower) {
+        String launcherStatus = currentTargetRPM > 0 ? "Target: " + currentTargetRPM + " RPM" :
+                manualFlywheelPower > 0.1 ? "Manual Power: " + String.format("%.2f", manualFlywheelPower) : "OFF";
+
+        String driveMode;
+        if (fullActive) driveMode = targetLocked ? "AUTOCENTER COMPLETE" : "AUTOCENTER ACTIVE (Cancel: Drive Stick)";
+        else if (yawActive) driveMode = targetLocked ? "YAW ALIGNED (HOLD)" : "YAW ALIGN (Y HOLD)";
+        else driveMode = "MANUAL";
+
+        telemetry.addData("Mode", driveMode);
         telemetry.addData("Tag Visible", visible);
 
         // CAMERA/APRILTAG TELEMETRY
         telemetry.addLine("");
         telemetry.addData("CAMERA STATUS", visionPortal.getCameraState());
         if (visible) {
-            telemetry.addData("TAG X (Strafe)", "%.2f M", tagX);
-            telemetry.addData("TAG Y (Forward)", "%.2f M", tagY);
+            telemetry.addData("TAG X (Strafe Err)", "%.2f M", tagX - ALIGNMENT_X_OFFSET_M);
+            // Show raw tag Y now that distance control is removed
+            telemetry.addData("TAG Y (Forward Dist)", "%.2f M", tagY);
             telemetry.addData("TAG Angle (Yaw)", "%.1f Deg", tagYawDeg);
         }
         telemetry.addData("X-Axis Offset", "%.2f M", ALIGNMENT_X_OFFSET_M);
 
         telemetry.addLine("-----");
         telemetry.addData("Battery", "%.2f V", batteryVoltageSensor.getVoltage());
-        telemetry.addData("Launcher Target", "%d RPM", currentTargetRPM);
-        telemetry.addData("Flywheel Ready", flywheelAtSpeed);
-        telemetry.addData("Vision Assist", "DPAD UP (Auto Strafe+Angle)");
+        telemetry.addData("Flywheel Target", launcherStatus);
+        telemetry.addData("D-Pad Map", "U:%d R:%d D:%d L:%d", RPM_TARGET_UP, RPM_TARGET_RIGHT, RPM_TARGET_DOWN, RPM_TARGET_LEFT);
+        telemetry.addData("Launcher Current", "%.0f RPM", currentFlywheelRPM);
+        telemetry.addData("Flywheel Ready (PID)", flywheelAtSpeed);
+        telemetry.addData("Vision Yaw Align", "HOLD Y (Yaw Only)");
+        telemetry.addData("Vision Auto Center", "PRESS B (Strafe+Yaw)");
         telemetry.addData("Feeder Control", "Press X for Timed Feed (%.2fs)", FEED_TIME_SECONDS);
+        telemetry.addData("Manual Speed", "Left Trigger");
 
         // ODOMETRY TELEMETRY (RESTORED)
         if (pose != null) {
