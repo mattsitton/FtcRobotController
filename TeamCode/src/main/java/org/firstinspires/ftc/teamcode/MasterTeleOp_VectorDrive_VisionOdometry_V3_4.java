@@ -34,7 +34,6 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V3_4 extends OpMode {
     // GoBilda 5203 (19.1:1) output shaft encoder ticks per revolution (534.8 PPR)
     private final double FLWHEEL_TICKS_PER_REV = 534.8;
 
-    // --- Launcher & Feeder ---l
     private DcMotorEx launcherMotor;
     private CRServo leftFeeder, rightFeeder;
     private final double FEED_TIME_SECONDS = 0.20; // Time the feeder runs for
@@ -45,10 +44,6 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V3_4 extends OpMode {
     private final PIDFCoefficients LAUNCHER_PIDF = new PIDFCoefficients(50, 0, 0, 12);
 
     // NEW: Realistic RPM targets (Max theoretical is 312 RPM)
-    private final int RPM_TARGET_UP = 240;     // Max Stable Shot
-    private final int RPM_TARGET_RIGHT = 195;
-    private final int RPM_TARGET_DOWN = 160;
-    private final int RPM_TARGET_LEFT = 200;   // Min Stable Shot
 
     // --- Enhancements ---
     private VoltageSensor batteryVoltageSensor;
@@ -67,11 +62,8 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V3_4 extends OpMode {
     // --- Target Lock / Vision Assist ---
     // Vision Mode Constants
     private final double ROTATION_KP = 0.1;
-    private final double ROTATION_MAX = 0.25;
     private final double STRAFE_KP = 0.7; // Proportional gain for X-axis alignment
-    private final double STRAFE_MAX = 0.3; // Maximum strafing power
     private final double ALIGNMENT_TOLERANCE_MM = 50.0; // Tolerance for strafing lock (50 mm)
-    private final double ANGLE_TOLERANCE_DEG = 7.0; // Tolerance for angle lock
 
     // X-Axis Offset
     private final double ALIGNMENT_X_OFFSET_M = 0.0; // [CUSTOMIZE]
@@ -140,7 +132,6 @@ public class MasterTeleOp_VectorDrive_VisionOdometry_V3_4 extends OpMode {
     public void loop() {
         // --- Read Gamepad Inputs ---
         double stickForward = gamepad1.left_stick_y;
-        double stickStrafe = -gamepad1.left_stick_x;
         double stickRotate = gamepad1.right_stick_x;
 
         // Drive/Launcher Triggers
